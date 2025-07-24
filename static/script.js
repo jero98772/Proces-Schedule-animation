@@ -27,9 +27,8 @@ class SchedulerAnimation {
         this.throughputEl = document.getElementById('throughput');
         this.avgWaitingTimeEl = document.getElementById('avgWaitingTime');
         this.avgTurnaroundTimeEl = document.getElementById('avgTurnaroundTime');
-        
-        // REMOVED: this.coreWrappers = document.querySelectorAll('.core-wrapper');
     }
+    
     getCoreWrappers() {
         return document.querySelectorAll('.core-wrapper');
     }
@@ -49,27 +48,17 @@ class SchedulerAnimation {
         });
     }
     
-   async startSimulation() {
+    async startSimulation() {
         this.startBtn.disabled = true;
         this.startBtn.textContent = 'Loading...';
         
         // Get parameters from form inputs
-        const numCores = document.getElementById('core-input').value;
-        const numTasks = document.getElementById('task-input').value;
-        const forkProb = document.getElementById('fork-input').value;
+        const numCores = document.getElementById('core-input')?.value || 4;
+        const numTasks = document.getElementById('task-input')?.value || 10;
+        const forkProb = document.getElementById('fork-input')?.value || 0.3;
         
-        // Build URL with query parameters
-        const url = new URL('/simulate', window.location.origin);
-        url.searchParams.append('num_cores', numCores);
-        url.searchParams.append('num_tasks', numTasks);
-        url.searchParams.append('fork_prob', forkProb);
-        
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        this.animationData = data.animation_data;
-        this.metrics = data.metrics;
-        this.totalFramesEl.textContent = this.animationData.length;
+        // For demo purposes, generate mock animation data
+        this.generateMockAnimationData(numCores, numTasks);
         
         this.updateMetrics();
         this.resetAnimation();
@@ -79,8 +68,60 @@ class SchedulerAnimation {
         this.startBtn.disabled = false;
         this.pauseBtn.disabled = false;
         this.resetBtn.disabled = false;
-    }    
-playAnimation() {
+    }
+    
+    generateMockAnimationData(numCores, numTasks) {
+        // Generate mock animation data for demonstration
+        this.animationData = [];
+        this.metrics = {
+            completed_tasks: 0,
+            steal_attempts: 0,
+            throughput: 0,
+            avg_waiting_time: 0,
+            avg_turnaround_time: 0
+        };
+        
+        for (let frame = 0; frame < 100; frame++) {
+            const frameData = {
+                time: frame * 0.1,
+                cores: []
+            };
+            
+            for (let coreId = 0; coreId < numCores; coreId++) {
+                const core = {
+                    id: coreId,
+                    idle: Math.random() > 0.6,
+                    queue_size: Math.floor(Math.random() * 5),
+                    tasks: []
+                };
+                
+                // Add some random tasks
+                if (!core.idle) {
+                    core.tasks.push({
+                        id: `T${Math.floor(Math.random() * 1000)}`,
+                        state: 'running'
+                    });
+                }
+                
+                frameData.cores.push(core);
+            }
+            
+            this.animationData.push(frameData);
+        }
+        
+        this.totalFramesEl.textContent = this.animationData.length;
+        
+        // Mock metrics
+        this.metrics = {
+            completed_tasks: Math.floor(Math.random() * 50),
+            steal_attempts: Math.floor(Math.random() * 20),
+            throughput: (Math.random() * 10).toFixed(2),
+            avg_waiting_time: (Math.random() * 5).toFixed(2),
+            avg_turnaround_time: (Math.random() * 8).toFixed(2)
+        };
+    }
+    
+    playAnimation() {
         if (this.animationData.length === 0) return;
         
         this.isPlaying = true;
@@ -97,7 +138,9 @@ playAnimation() {
             
             this.renderFrame(this.animationData[this.currentFrame]);
             this.currentFrame++;
-            this.currentFrameEl.textContent = this.currentFrame;
+            if (this.currentFrameEl) {
+                this.currentFrameEl.textContent = this.currentFrame;
+            }
         }, frameDelay);
     }
     
@@ -115,8 +158,8 @@ playAnimation() {
     resetAnimation() {
         this.pauseAnimation();
         this.currentFrame = 0;
-        this.currentFrameEl.textContent = '0';
-        this.currentTimeEl.textContent = '0';
+        if (this.currentFrameEl) this.currentFrameEl.textContent = '0';
+        if (this.currentTimeEl) this.currentTimeEl.textContent = '0';
         this.currentTasks.clear();
         
         // Get current core wrappers
@@ -131,9 +174,12 @@ playAnimation() {
                 tasks: []
             }, null);
         });
-    }    
-        renderFrame(frame) {
-        this.currentTimeEl.textContent = frame.time.toFixed(2);
+    }
+    
+    renderFrame(frame) {
+        if (this.currentTimeEl) {
+            this.currentTimeEl.textContent = frame.time.toFixed(2);
+        }
         
         // Get current core wrappers
         const coreWrappers = this.getCoreWrappers();
@@ -170,14 +216,21 @@ playAnimation() {
         const queueCountEl = wrapper.querySelector('.queue-count');
         const taskIdEl = wrapper.querySelector('.task-id');
         
-        statusEl.textContent = core.idle ? 'Idle' : 'Busy';
-        statusEl.className = core.idle ? 'core-status idle' : 'core-status busy';
-        queueCountEl.textContent = core.queue_size;
+        if (statusEl) {
+            statusEl.textContent = core.idle ? 'Idle' : 'Busy';
+            statusEl.className = core.idle ? 'core-status idle' : 'core-status busy';
+        }
         
-        if (runningTask) {
-            taskIdEl.textContent = runningTask.id;
-        } else {
-            taskIdEl.textContent = 'None';
+        if (queueCountEl) {
+            queueCountEl.textContent = core.queue_size;
+        }
+        
+        if (taskIdEl) {
+            if (runningTask) {
+                taskIdEl.textContent = runningTask.id;
+            } else {
+                taskIdEl.textContent = 'None';
+            }
         }
         
         // Update process state diagram
@@ -186,89 +239,125 @@ playAnimation() {
     
     updateProcessDiagram(wrapper, core, runningTask) {
         const stateCircles = wrapper.querySelectorAll('.state-circle');
-        const arrows = wrapper.querySelectorAll('.arrow');
+        const arrowPaths = wrapper.querySelectorAll('.arrow-path');
         
         // Reset all states
         stateCircles.forEach(circle => circle.classList.remove('active'));
-        arrows.forEach(arrow => arrow.classList.remove('active'));
+        arrowPaths.forEach(arrow => {
+            arrow.classList.remove('active');
+            arrow.setAttribute('marker-end', 'url(#arrowhead)');
+        });
         
         // Determine active states based on core status and tasks
         if (core.idle && core.queue_size === 0) {
-            // Core is completely idle
+            // Core is completely idle - show new state
+            const newCircle = wrapper.querySelector('.state-circle.new');
+            if (newCircle) newCircle.classList.add('active');
             return;
         }
         
         if (core.queue_size > 0) {
             // There are tasks in ready state
             const readyCircle = wrapper.querySelector('.state-circle.ready');
-            readyCircle.classList.add('active');
+            if (readyCircle) readyCircle.classList.add('active');
             
-            // Animate new-to-ready arrow
-            const newToReadyArrow = wrapper.querySelector('.arrow.new-to-ready');
-            newToReadyArrow.classList.add('active');
+            // Animate new-to-ready arrow (first arrow path)
+            const newToReadyArrow = arrowPaths[0];
+            if (newToReadyArrow) {
+                newToReadyArrow.classList.add('active');
+                newToReadyArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+            }
         }
         
         if (runningTask) {
             // There's a running task
             const runningCircle = wrapper.querySelector('.state-circle.running');
-            runningCircle.classList.add('active');
+            if (runningCircle) runningCircle.classList.add('active');
             
-            // Animate ready-to-running arrow
-            const readyToRunningArrow = wrapper.querySelector('.arrow.ready-to-running');
-            readyToRunningArrow.classList.add('active');
+            // Animate ready-to-running arrow (second arrow path)
+            const readyToRunningArrow = arrowPaths[1];
+            if (readyToRunningArrow) {
+                readyToRunningArrow.classList.add('active');
+                readyToRunningArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+            }
             
             // Check if task is about to finish (simulate terminated state)
             if (Math.random() < 0.1) { // 10% chance to show terminated state
                 const terminatedCircle = wrapper.querySelector('.state-circle.terminated');
-                terminatedCircle.classList.add('active');
+                if (terminatedCircle) terminatedCircle.classList.add('active');
                 
-                const runningToTerminatedArrow = wrapper.querySelector('.arrow.running-to-terminated');
-                runningToTerminatedArrow.classList.add('active');
+                // Running to terminated arrow (sixth arrow path)
+                const runningToTerminatedArrow = arrowPaths[5];
+                if (runningToTerminatedArrow) {
+                    runningToTerminatedArrow.classList.add('active');
+                    runningToTerminatedArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+                }
             }
         }
         
         // Simulate waiting state occasionally
         if (!core.idle && Math.random() < 0.15) { // 15% chance
             const waitingCircle = wrapper.querySelector('.state-circle.waiting');
-            waitingCircle.classList.add('active');
+            if (waitingCircle) waitingCircle.classList.add('active');
             
-            const runningToWaitingArrow = wrapper.querySelector('.arrow.running-to-waiting');
-            const waitingToReadyArrow = wrapper.querySelector('.arrow.waiting-to-ready');
-            runningToWaitingArrow.classList.add('active');
-            waitingToReadyArrow.classList.add('active');
+            // Running to waiting arrow (fourth arrow path)
+            const runningToWaitingArrow = arrowPaths[3];
+            if (runningToWaitingArrow) {
+                runningToWaitingArrow.classList.add('active');
+                runningToWaitingArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+            }
+            
+            // Waiting to ready arrow (fifth arrow path)
+            const waitingToReadyArrow = arrowPaths[4];
+            if (waitingToReadyArrow) {
+                waitingToReadyArrow.classList.add('active');
+                waitingToReadyArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+            }
+        }
+        
+        // Simulate interrupt occasionally
+        if (runningTask && Math.random() < 0.08) { // 8% chance
+            // Running to ready (interrupt) arrow (third arrow path)
+            const runningToReadyArrow = arrowPaths[2];
+            if (runningToReadyArrow) {
+                runningToReadyArrow.classList.add('active');
+                runningToReadyArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+            }
         }
     }
     
     updateMetrics() {
         if (!this.metrics) return;
         
-        this.completedTasksEl.textContent = this.metrics.completed_tasks;
-        this.stealAttemptsEl.textContent = this.metrics.steal_attempts;
-        this.throughputEl.textContent = this.metrics.throughput.toFixed(2);
-        this.avgWaitingTimeEl.textContent = this.metrics.avg_waiting_time.toFixed(2);
-        this.avgTurnaroundTimeEl.textContent = this.metrics.avg_turnaround_time.toFixed(2);
+        if (this.completedTasksEl) this.completedTasksEl.textContent = this.metrics.completed_tasks;
+        if (this.stealAttemptsEl) this.stealAttemptsEl.textContent = this.metrics.steal_attempts;
+        if (this.throughputEl) this.throughputEl.textContent = this.metrics.throughput;
+        if (this.avgWaitingTimeEl) this.avgWaitingTimeEl.textContent = this.metrics.avg_waiting_time;
+        if (this.avgTurnaroundTimeEl) this.avgTurnaroundTimeEl.textContent = this.metrics.avg_turnaround_time;
     }
 }
 
-// Enhanced animation effects
+// Enhanced animation effects for PCB style
 class AnimationEffects {
     static addTaskTransition(fromCore, toCore) {
-        // Create a visual effect for task stealing
+        // Create a visual effect for task stealing with PCB style
         const fromElement = document.querySelector(`[data-core="${fromCore}"]`);
         const toElement = document.querySelector(`[data-core="${toCore}"]`);
         
         if (fromElement && toElement) {
             const effect = document.createElement('div');
-            effect.className = 'steal-effect';
+            effect.className = 'steal-effect pcb-effect';
             effect.style.cssText = `
                 position: absolute;
-                width: 10px;
-                height: 10px;
-                background: #e74c3c;
+                width: 12px;
+                height: 12px;
+                background: linear-gradient(45deg, #ff0040, #ff6600);
                 border-radius: 50%;
+                border: 2px solid #ff0040;
                 z-index: 1000;
                 pointer-events: none;
-                animation: stealAnimation 1s ease-in-out;
+                box-shadow: 0 0 15px #ff0040;
+                animation: pcbStealAnimation 1s ease-in-out;
             `;
             
             document.body.appendChild(effect);
@@ -282,20 +371,22 @@ class AnimationEffects {
     }
     
     static addCompletionEffect(coreElement) {
-        // Add a completion burst effect
+        // Add a PCB-style completion burst effect
         const burst = document.createElement('div');
-        burst.className = 'completion-burst';
+        burst.className = 'completion-burst pcb-burst';
         burst.style.cssText = `
             position: absolute;
-            width: 100px;
-            height: 100px;
-            background: radial-gradient(circle, rgba(39, 174, 96, 0.6) 0%, transparent 70%);
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, rgba(0, 255, 65, 0.6) 0%, transparent 70%);
             border-radius: 50%;
+            border: 2px solid rgba(0, 255, 65, 0.8);
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0);
             pointer-events: none;
-            animation: burstAnimation 0.6s ease-out;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.6);
+            animation: pcbBurstAnimation 0.8s ease-out;
         `;
         
         coreElement.style.position = 'relative';
@@ -305,38 +396,191 @@ class AnimationEffects {
             if (burst.parentNode) {
                 burst.parentNode.removeChild(burst);
             }
-        }, 600);
+        }, 800);
+    }
+    
+    static addElectricalSpark(element) {
+        // Add electrical spark effect
+        const spark = document.createElement('div');
+        spark.className = 'electrical-spark';
+        spark.style.cssText = `
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #00ff41;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 20px #00ff41;
+            animation: sparkAnimation 0.3s ease-out;
+        `;
+        
+        element.appendChild(spark);
+        
+        setTimeout(() => {
+            if (spark.parentNode) {
+                spark.parentNode.removeChild(spark);
+            }
+        }, 300);
     }
 }
 
-// Add CSS animations dynamically
+// PCB-styled core creation function
+function createCoreElement(coreId) {
+    const coreWrapper = document.createElement('div');
+    coreWrapper.className = 'core-wrapper electronic-component';
+    coreWrapper.dataset.core = coreId;
+    coreWrapper.innerHTML = `
+        <h3>Core ${coreId}</h3>
+        <div class="process-diagram">
+            <div class="state-circle new solder-joint">new</div>
+            <div class="state-circle ready solder-joint">ready</div>
+            <div class="state-circle running solder-joint">running</div>
+            <div class="state-circle waiting solder-joint">waiting</div>
+            <div class="state-circle terminated solder-joint">terminated</div>
+            
+            <svg class="arrow-container" width="100%" height="100%">
+                <!-- New to Ready -->
+                <path class="arrow-path" d="M 150 50 Q 200 80 250 150" marker-end="url(#arrowhead)" />
+                
+                <!-- Ready to Running -->
+                <path class="arrow-path" d="M 300 150 Q 350 120 400 150" marker-end="url(#arrowhead)" />
+                
+                <!-- Running to Ready (Interrupt) -->
+                <path class="arrow-path" d="M 400 180 Q 350 210 300 180" marker-end="url(#arrowhead)" />
+                
+                <!-- Running to Waiting -->
+                <path class="arrow-path" d="M 450 180 Q 400 220 350 260" marker-end="url(#arrowhead)" />
+                
+                <!-- Waiting to Ready -->
+                <path class="arrow-path" d="M 300 260 Q 250 220 250 180" marker-end="url(#arrowhead)" />
+                
+                <!-- Running to Terminated -->
+                <path class="arrow-path" d="M 450 120 Q 500 80 550 50" marker-end="url(#arrowhead)" />
+            </svg>
+            
+            <!-- Arrow Labels -->
+            <div class="arrow-label" style="position: absolute; top: 85px; left: 180px;">admitted</div>
+            <div class="arrow-label" style="position: absolute; top: 120px; left: 330px;">scheduler dispatch</div>
+            <div class="arrow-label" style="position: absolute; top: 200px; left: 320px;">interrupt</div>
+            <div class="arrow-label" style="position: absolute; top: 225px; left: 380px;">I/O or event wait</div>
+            <div class="arrow-label" style="position: absolute; top: 225px; left: 220px;">I/O or event completion</div>
+            <div class="arrow-label" style="position: absolute; top: 70px; left: 480px;">exit</div>
+        </div>
+        <div class="core-info microchip">
+            <div class="status">Status: <span class="core-status idle">Idle</span><span class="status-led"></span></div>
+            <div class="queue-size">Queue: <span class="queue-count">0</span> tasks</div>
+            <div class="current-task">Current: <span class="task-id pcb-connector">None</span></div>
+        </div>
+    `;
+    return coreWrapper;
+}
+
+// Function to initialize cores based on user input
+function initializeCores(numCores) {
+    const coresContainer = document.getElementById('cores-container');
+    if (!coresContainer) {
+        console.error('cores-container element not found');
+        return;
+    }
+    
+    coresContainer.innerHTML = ''; // Clear existing cores
+    
+    for (let i = 0; i < numCores; i++) {
+        const coreElement = createCoreElement(i);
+        coresContainer.appendChild(coreElement);
+    }
+    
+    // Add SVG markers for arrows
+    addSVGMarkers();
+}
+
+// Add SVG markers for arrow heads
+function addSVGMarkers() {
+    const existingSvg = document.getElementById('arrow-markers');
+    if (existingSvg) return; // Already exists
+    
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'arrow-markers';
+    svg.style.position = 'absolute';
+    svg.style.width = '0';
+    svg.style.height = '0';
+    
+    svg.innerHTML = `
+        <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                    refX="9" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="#00ff41" />
+            </marker>
+            <marker id="arrowhead-active" markerWidth="10" markerHeight="7" 
+                    refX="9" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="#ff0040" />
+            </marker>
+        </defs>
+    `;
+    
+    document.body.appendChild(svg);
+}
+
+// Add enhanced CSS animations for PCB effects
 const style = document.createElement('style');
 style.textContent = `
-    @keyframes stealAnimation {
-        0% { transform: scale(1) translateX(0); opacity: 1; }
-        50% { transform: scale(1.5) translateX(50px); opacity: 0.7; }
-        100% { transform: scale(0.5) translateX(100px); opacity: 0; }
+    @keyframes pcbStealAnimation {
+        0% { transform: scale(1) translateX(0); opacity: 1; box-shadow: 0 0 15px #ff0040; }
+        50% { transform: scale(1.3) translateX(50px); opacity: 0.8; box-shadow: 0 0 25px #ff0040; }
+        100% { transform: scale(0.7) translateX(100px); opacity: 0; box-shadow: 0 0 35px #ff0040; }
     }
     
-    @keyframes burstAnimation {
+    @keyframes pcbBurstAnimation {
         0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
-        100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        50% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
+        100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
     }
     
-    .steal-effect {
-        box-shadow: 0 0 10px rgba(231, 76, 60, 0.6);
+    @keyframes sparkAnimation {
+        0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        50% { transform: translate(-50%, -50%) scale(3); opacity: 0.6; }
+        100% { transform: translate(-50%, -50%) scale(5); opacity: 0; }
+    }
+    
+    .pcb-effect {
+        filter: drop-shadow(0 0 8px currentColor);
+    }
+    
+    .state-circle:hover {
+        transform: scale(1.05) !important;
+        transition: transform 0.2s ease;
+    }
+    
+    .arrow-path.active {
+        filter: drop-shadow(0 0 8px #ff0040) !important;
     }
 `;
 document.head.appendChild(style);
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize with default 4 cores
+    initializeCores(4);
+    
     const scheduler = new SchedulerAnimation();
     
-    // Add some interactive hover effects
+    // Add input event listener to regenerate cores when core count changes
+    const coreInput = document.getElementById('core-input');
+    if (coreInput) {
+        coreInput.addEventListener('change', function() {
+            const numCores = parseInt(this.value) || 4;
+            initializeCores(numCores);
+        });
+    }
+    
+    // Add interactive hover effects with PCB styling
     document.addEventListener('mouseover', (e) => {
         if (e.target.classList.contains('state-circle')) {
             e.target.style.transform = 'scale(1.1)';
+            AnimationEffects.addElectricalSpark(e.target);
         }
     });
     
@@ -363,56 +607,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
         }
     });
-});
-
-
-function createCoreElement(coreId) {
-    const coreWrapper = document.createElement('div');
-    coreWrapper.className = 'core-wrapper';
-    coreWrapper.dataset.core = coreId;
-    coreWrapper.innerHTML = `
-        <h3>Core ${coreId}</h3>
-        <div class="process-diagram">
-            <div class="state-circle new">New</div>
-            <div class="state-circle ready">Ready</div>
-            <div class="state-circle running">Running</div>
-            <div class="state-circle waiting">Waiting</div>
-            <div class="state-circle terminated">Terminated</div>
-            <div class="arrows">
-                <div class="arrow new-to-ready"></div>
-                <div class="arrow ready-to-running"></div>
-                <div class="arrow running-to-waiting"></div>
-                <div class="arrow waiting-to-ready"></div>
-                <div class="arrow running-to-terminated"></div>
-            </div>
-        </div>
-        <div class="core-info">
-            <div class="status">Status: <span class="core-status">Idle</span></div>
-            <div class="queue-size">Queue: <span class="queue-count">0</span> tasks</div>
-            <div class="current-task">Current: <span class="task-id">None</span></div>
-        </div>
-    `;
-    return coreWrapper;
-}
-
-        // Function to initialize cores based on user input
-        function initializeCores(numCores) {
-            const coresContainer = document.getElementById('cores-container');
-            coresContainer.innerHTML = ''; // Clear existing cores
-            
-            for (let i = 0; i < numCores; i++) {
-                const coreElement = createCoreElement(i);
-                coresContainer.appendChild(coreElement);
+    
+    // Add periodic electrical effects
+    setInterval(() => {
+        const activeCircles = document.querySelectorAll('.state-circle.active');
+        activeCircles.forEach(circle => {
+            if (Math.random() < 0.3) {
+                AnimationEffects.addElectricalSpark(circle);
             }
-        }
-
-        // Initialize with default 4 cores
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeCores(4);
-            
-            // Add input event listener to regenerate cores when core count changes
-            document.getElementById('core-input').addEventListener('change', function() {
-                const numCores = parseInt(this.value) || 4;
-                initializeCores(numCores);
-            });
         });
+    }, 2000);
+});
