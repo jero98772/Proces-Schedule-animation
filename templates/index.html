@@ -78,31 +78,30 @@
         </div>
         
         <div class="legend">
-            <h4>Process States Legend</h4>
-            <div class="legend-items">
-                <div class="legend-item">
-                    <div class="legend-color new"></div>
-                    <span>New - Process is being created</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color ready"></div>
-                    <span>Ready - Process is ready to execute</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color running"></div>
-                    <span>Running - Process is being executed</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color waiting"></div>
-                    <span>Waiting - Process is waiting for I/O</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color terminated"></div>
-                    <span>Terminated - Process has finished</span>
-                </div>
-            </div>
+    <h4>Process State Legend</h4>
+    <div class="legend-items">
+        <div class="legend-item">
+            <div class="legend-color start"></div>
+            <span>Start - Process is being created</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color ready"></div>
+            <span>Ready - Process is waiting for CPU assignment</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color running"></div>
+            <span>Running - Process is currently executing</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color blocked"></div>
+            <span>Blocked - Process is waiting for I/O or resources</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color terminated"></div>
+            <span>Terminated - Process has finished execution</span>
         </div>
     </div>
+</div>
     
     
     <script src="/static/script.js"></script>

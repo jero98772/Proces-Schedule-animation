@@ -238,93 +238,99 @@ class SchedulerAnimation {
     }
     
     updateProcessDiagram(wrapper, core, runningTask) {
-        const stateCircles = wrapper.querySelectorAll('.state-circle');
-        const arrowPaths = wrapper.querySelectorAll('.arrow-path');
+    const stateCircles = wrapper.querySelectorAll('.state-circle');
+    const arrowPaths = wrapper.querySelectorAll('.arrow-path');
+    
+    // Reset all states
+    stateCircles.forEach(circle => circle.classList.remove('active'));
+    arrowPaths.forEach(arrow => {
+        arrow.classList.remove('active');
+        arrow.setAttribute('marker-end', 'url(#arrowhead)');
+    });
+    
+    // Determine active states based on core status and tasks
+    if (core.idle && core.queue_size === 0) {
+        // Core is completely idle - show start state (waiting for new processes)
+        const startCircle = wrapper.querySelector('.state-circle.start, .state-circle.new');
+        if (startCircle) startCircle.classList.add('active');
+        return;
+    }
+    
+    if (core.queue_size > 0) {
+        // There are tasks in ready state
+        const readyCircle = wrapper.querySelector('.state-circle.ready');
+        if (readyCircle) readyCircle.classList.add('active');
         
-        // Reset all states
-        stateCircles.forEach(circle => circle.classList.remove('active'));
-        arrowPaths.forEach(arrow => {
-            arrow.classList.remove('active');
-            arrow.setAttribute('marker-end', 'url(#arrowhead)');
-        });
-        
-        // Determine active states based on core status and tasks
-        if (core.idle && core.queue_size === 0) {
-            // Core is completely idle - show new state
-            const newCircle = wrapper.querySelector('.state-circle.new');
-            if (newCircle) newCircle.classList.add('active');
-            return;
-        }
-        
-        if (core.queue_size > 0) {
-            // There are tasks in ready state
-            const readyCircle = wrapper.querySelector('.state-circle.ready');
-            if (readyCircle) readyCircle.classList.add('active');
+        // Show start-to-ready transition if there are new tasks
+        if (Math.random() < 0.3) { // 30% chance to show admission
+            const startCircle = wrapper.querySelector('.state-circle.start, .state-circle.new');
+            if (startCircle) startCircle.classList.add('active');
             
-            // Animate new-to-ready arrow (first arrow path)
-            const newToReadyArrow = arrowPaths[0];
-            if (newToReadyArrow) {
-                newToReadyArrow.classList.add('active');
-                newToReadyArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
-            }
-        }
-        
-        if (runningTask) {
-            // There's a running task
-            const runningCircle = wrapper.querySelector('.state-circle.running');
-            if (runningCircle) runningCircle.classList.add('active');
-            
-            // Animate ready-to-running arrow (second arrow path)
-            const readyToRunningArrow = arrowPaths[1];
-            if (readyToRunningArrow) {
-                readyToRunningArrow.classList.add('active');
-                readyToRunningArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
-            }
-            
-            // Check if task is about to finish (simulate terminated state)
-            if (Math.random() < 0.1) { // 10% chance to show terminated state
-                const terminatedCircle = wrapper.querySelector('.state-circle.terminated');
-                if (terminatedCircle) terminatedCircle.classList.add('active');
-                
-                // Running to terminated arrow (sixth arrow path)
-                const runningToTerminatedArrow = arrowPaths[5];
-                if (runningToTerminatedArrow) {
-                    runningToTerminatedArrow.classList.add('active');
-                    runningToTerminatedArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
-                }
-            }
-        }
-        
-        // Simulate waiting state occasionally
-        if (!core.idle && Math.random() < 0.15) { // 15% chance
-            const waitingCircle = wrapper.querySelector('.state-circle.waiting');
-            if (waitingCircle) waitingCircle.classList.add('active');
-            
-            // Running to waiting arrow (fourth arrow path)
-            const runningToWaitingArrow = arrowPaths[3];
-            if (runningToWaitingArrow) {
-                runningToWaitingArrow.classList.add('active');
-                runningToWaitingArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
-            }
-            
-            // Waiting to ready arrow (fifth arrow path)
-            const waitingToReadyArrow = arrowPaths[4];
-            if (waitingToReadyArrow) {
-                waitingToReadyArrow.classList.add('active');
-                waitingToReadyArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
-            }
-        }
-        
-        // Simulate interrupt occasionally
-        if (runningTask && Math.random() < 0.08) { // 8% chance
-            // Running to ready (interrupt) arrow (third arrow path)
-            const runningToReadyArrow = arrowPaths[2];
-            if (runningToReadyArrow) {
-                runningToReadyArrow.classList.add('active');
-                runningToReadyArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+            // Animate start-to-ready arrow (first arrow path)
+            const startToReadyArrow = arrowPaths[0];
+            if (startToReadyArrow) {
+                startToReadyArrow.classList.add('active');
+                startToReadyArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
             }
         }
     }
+    
+    if (runningTask) {
+        // There's a running task
+        const runningCircle = wrapper.querySelector('.state-circle.running');
+        if (runningCircle) runningCircle.classList.add('active');
+        
+        // Animate ready-to-running arrow (second arrow path)
+        const readyToRunningArrow = arrowPaths[1];
+        if (readyToRunningArrow) {
+            readyToRunningArrow.classList.add('active');
+            readyToRunningArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+        }
+        
+        // Check if task is about to finish (simulate terminated state)
+        if (Math.random() < 0.1) { // 10% chance to show terminated state
+            const terminatedCircle = wrapper.querySelector('.state-circle.terminated');
+            if (terminatedCircle) terminatedCircle.classList.add('active');
+            
+            // Running to terminated arrow (sixth arrow path)
+            const runningToTerminatedArrow = arrowPaths[5];
+            if (runningToTerminatedArrow) {
+                runningToTerminatedArrow.classList.add('active');
+                runningToTerminatedArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+            }
+        }
+    }
+    
+    // Simulate blocked state occasionally (I/O wait)
+    if (!core.idle && Math.random() < 0.15) { // 15% chance
+        const blockedCircle = wrapper.querySelector('.state-circle.blocked, .state-circle.waiting');
+        if (blockedCircle) blockedCircle.classList.add('active');
+        
+        // Running to blocked arrow (fourth arrow path)
+        const runningToBlockedArrow = arrowPaths[3];
+        if (runningToBlockedArrow) {
+            runningToBlockedArrow.classList.add('active');
+            runningToBlockedArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+        }
+        
+        // Blocked to ready arrow (fifth arrow path)
+        const blockedToReadyArrow = arrowPaths[4];
+        if (blockedToReadyArrow) {
+            blockedToReadyArrow.classList.add('active');
+            blockedToReadyArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+        }
+    }
+    
+    // Simulate preemption/interrupt occasionally
+    if (runningTask && Math.random() < 0.12) { // 12% chance
+        // Running to ready (preemption) arrow (third arrow path)
+        const runningToReadyArrow = arrowPaths[2];
+        if (runningToReadyArrow) {
+            runningToReadyArrow.classList.add('active');
+            runningToReadyArrow.setAttribute('marker-end', 'url(#arrowhead-active)');
+        }
+    }
+}
     
     updateMetrics() {
         if (!this.metrics) return;
@@ -427,7 +433,7 @@ class AnimationEffects {
     }
 }
 
-// PCB-styled core creation function
+// PCB-styled core creation function with corrected state diagram
 function createCoreElement(coreId) {
     const coreWrapper = document.createElement('div');
     coreWrapper.className = 'core-wrapper electronic-component';
@@ -435,39 +441,40 @@ function createCoreElement(coreId) {
     coreWrapper.innerHTML = `
         <h3>Core ${coreId}</h3>
         <div class="process-diagram">
-            <div class="state-circle new solder-joint">new</div>
-            <div class="state-circle ready solder-joint">ready</div>
-            <div class="state-circle running solder-joint">running</div>
-            <div class="state-circle waiting solder-joint">waiting</div>
-            <div class="state-circle terminated solder-joint">terminated</div>
+            <!-- States positioned to match the arrow paths -->
+            <div class="state-circle start solder-joint" style="position: absolute; top: 20px; left: 10px;">start</div>
+            <div class="state-circle ready solder-joint" style="position: absolute; top: 120px; left: 50px;">ready</div>
+            <div class="state-circle running solder-joint" style="position: absolute; top: 120px; right: 50px;">running</div>
+            <div class="state-circle blocked solder-joint" style="position: absolute; top: 220px; left: 150px;">blocked</div>
+            <div class="state-circle terminated solder-joint" style="position: absolute; top: 20px; right: 10px;">terminated</div>
             
             <svg class="arrow-container" width="100%" height="100%">
-                <!-- New to Ready -->
-                <path class="arrow-path" d="M 150 50 Q 200 80 250 150" marker-end="url(#arrowhead)" />
+                <!-- Start to Ready -->
+                <path class="arrow-path" d="M 10 50 Q 15 80 120 115" marker-end="url(#arrowhead)" />
                 
                 <!-- Ready to Running -->
-                <path class="arrow-path" d="M 300 150 Q 350 120 400 150" marker-end="url(#arrowhead)" />
+                <path class="arrow-path" d="M 100 150 Q 150 135 230 150" marker-end="url(#arrowhead)" />
                 
-                <!-- Running to Ready (Interrupt) -->
-                <path class="arrow-path" d="M 400 180 Q 350 210 300 180" marker-end="url(#arrowhead)" />
+                <!-- Running to Ready (Preemption/Interrupt) -->
+                <path class="arrow-path" d="M 400 180 Q 350 195 300 180" marker-end="url(#arrowhead)" />
                 
-                <!-- Running to Waiting -->
-                <path class="arrow-path" d="M 450 180 Q 400 220 350 260" marker-end="url(#arrowhead)" />
+                <!-- Running to Blocked -->
+                <path class="arrow-path" d="M 450 180 Q 425 200 350 250" marker-end="url(#arrowhead)" />
                 
-                <!-- Waiting to Ready -->
-                <path class="arrow-path" d="M 300 260 Q 250 220 250 180" marker-end="url(#arrowhead)" />
+                <!-- Blocked to Ready -->
+                <path class="arrow-path" d="M 300 250 Q 275 215 250 180" marker-end="url(#arrowhead)" />
                 
                 <!-- Running to Terminated -->
-                <path class="arrow-path" d="M 450 120 Q 500 80 550 50" marker-end="url(#arrowhead)" />
+                <path class="arrow-path" d="M 450 150 Q 475 100 500 50" marker-end="url(#arrowhead)" />
             </svg>
             
-            <!-- Arrow Labels -->
-            <div class="arrow-label" style="position: absolute; top: 85px; left: 180px;">admitted</div>
-            <div class="arrow-label" style="position: absolute; top: 120px; left: 330px;">scheduler dispatch</div>
-            <div class="arrow-label" style="position: absolute; top: 200px; left: 320px;">interrupt</div>
-            <div class="arrow-label" style="position: absolute; top: 225px; left: 380px;">I/O or event wait</div>
-            <div class="arrow-label" style="position: absolute; top: 225px; left: 220px;">I/O or event completion</div>
-            <div class="arrow-label" style="position: absolute; top: 70px; left: 480px;">exit</div>
+            <!-- Arrow Labels with corrected positioning -->
+            <div class="arrow-label" style="position: absolute; top: 75px; left: 160px;">admitted</div>
+            <div class="arrow-label" style="position: absolute; top: 130px; left: 320px;">scheduler dispatch</div>
+            <div class="arrow-label" style="position: absolute; top: 200px; left: 320px;">preemption</div>
+            <div class="arrow-label" style="position: absolute; top: 200px; left: 380px;">I/O or event wait</div>
+            <div class="arrow-label" style="position: absolute; top: 200px; left: 220px;">I/O completion</div>
+            <div class="arrow-label" style="position: absolute; top: 75px; right: 120px;">exit</div>
         </div>
         <div class="core-info microchip">
             <div class="status">Status: <span class="core-status idle">Idle</span><span class="status-led"></span></div>
@@ -618,3 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }, 2000);
 });
+
+const styleElement = document.createElement('style');
+styleElement.textContent = additionalStyles;
+document.head.appendChild(styleElement);
