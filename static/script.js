@@ -450,31 +450,29 @@ function createCoreElement(coreId) {
             
             <svg class="arrow-container" width="100%" height="100%">
                 <!-- Start to Ready -->
-                <path class="arrow-path" d="M 10 50 Q 15 80 120 115" marker-end="url(#arrowhead)" />
+                <path class="arrow-path" d="M 60 70 Q 50 100 100 120" marker-end="url(#arrowhead)" />
                 
                 <!-- Ready to Running -->
-                <path class="arrow-path" d="M 100 150 Q 150 135 230 150" marker-end="url(#arrowhead)" />
+                <path class="arrow-path" d="M 120 130 Q 180 100 240 130" marker-end="url(#arrowhead)" />
                 
                 <!-- Running to Ready (Preemption/Interrupt) -->
-                <path class="arrow-path" d="M 400 180 Q 350 195 300 180" marker-end="url(#arrowhead)" />
+                <path class="arrow-path" d="M 280 150 Q 350 130 340 80" marker-end="url(#arrowhead)" />
                 
                 <!-- Running to Blocked -->
-                <path class="arrow-path" d="M 450 180 Q 425 200 350 250" marker-end="url(#arrowhead)" />
+                <path class="arrow-path" d="M 275 180 Q 285 200 250 250" marker-end="url(#arrowhead)" />
                 
                 <!-- Blocked to Ready -->
-                <path class="arrow-path" d="M 300 250 Q 275 215 250 180" marker-end="url(#arrowhead)" />
+                <path class="arrow-path" d="M 150 250 Q 100 215 90 180" marker-end="url(#arrowhead)" />
                 
-                <!-- Running to Terminated -->
-                <path class="arrow-path" d="M 450 150 Q 475 100 500 50" marker-end="url(#arrowhead)" />
             </svg>
             
-            <!-- Arrow Labels with corrected positioning -->
+            <!-- Arrow Labels with corrected positioning >
             <div class="arrow-label" style="position: absolute; top: 75px; left: 160px;">admitted</div>
             <div class="arrow-label" style="position: absolute; top: 130px; left: 320px;">scheduler dispatch</div>
             <div class="arrow-label" style="position: absolute; top: 200px; left: 320px;">preemption</div>
             <div class="arrow-label" style="position: absolute; top: 200px; left: 380px;">I/O or event wait</div>
             <div class="arrow-label" style="position: absolute; top: 200px; left: 220px;">I/O completion</div>
-            <div class="arrow-label" style="position: absolute; top: 75px; right: 120px;">exit</div>
+            <div class="arrow-label" style="position: absolute; top: 75px; right: 120px;">exit</div-->
         </div>
         <div class="core-info microchip">
             <div class="status">Status: <span class="core-status idle">Idle</span><span class="status-led"></span></div>
