@@ -69,8 +69,9 @@ Then open your browser at:
 
 ### 1. Web UI
 
-![UI](static/screenshots/1.png)
-![UI](static/screenshots/2.png)
+![UI](https://raw.githubusercontent.com/jero98772/Proces-Schedule-animation/refs/heads/main/screenshots/1.png)
+
+![UI](https://raw.githubusercontent.com/jero98772/Proces-Schedule-animation/refs/heads/main/screenshots/2.png)
 
 ## 📜 License
 
