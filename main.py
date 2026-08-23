@@ -1,230 +1,184 @@
 import heapq
-import random
-import threading
 from collections import deque
 from fastapi import FastAPI, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
-import json
-
-class Task:
-    def __init__(self, id, burst, children=None):
-        self.id = id
-        self.burst_time = burst
-        self.children = children or []
-        self.state = "start"
-        self.ready_time = None
-        self.start_time = None
-        self.finish_time = None
-        self.core_id = None
-    
-    def __lt__(self, other):
-        return self.id < other.id
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'burst_time': self.burst_time,
-            'state': self.state,
-            'ready_time': self.ready_time,
-            'start_time': self.start_time,
-            'finish_time': self.finish_time,
-            'core_id': self.core_id,
-            'children': [child.to_dict() for child in self.children]
-        }
-
-class WSDeque:
-    def __init__(self):
-        self.queue = deque()
-        self.lock = threading.Lock()
-    
-    def push_bottom(self, task):
-        with self.lock:
-            self.queue.append(task)
-    
-    def pop_bottom(self):
-        with self.lock:
-            return self.queue.pop() if self.queue else None
-    
-    def steal_top(self):
-        with self.lock:
-            return self.queue.popleft() if self.queue else None
-
-class MulticoreSimulator:
-    def __init__(self, num_cores):
-        self.num_cores = num_cores
-        self.deques = [WSDeque() for _ in range(num_cores)]
-        self.idle_cores = set(range(num_cores))
-        self.event_queue = []
-        self.time = 0
-        self.event_counter = 0
-        self.animation_data = []
-        self.metrics = {
-            "completed_tasks": 0,
-            "steal_attempts": 0,
-            "throughput": 0,
-            "avg_waiting_time": 0,
-            "avg_turnaround_time": 0,
-            "finished_tasks": []
-        }
-    
-    def schedule_event(self, time, event_type, *args):
-        self.event_counter += 1
-        heapq.heappush(self.event_queue, (time, self.event_counter, event_type, *args))
-    
-    def capture_animation_frame(self):
-        frame = {
-            'time': self.time,
-            'cores': []
-        }
-        
-        for core_idx in range(self.num_cores):
-            core_data = {
-                'id': core_idx,
-                'idle': core_idx in self.idle_cores,
-                'queue_size': len(self.deques[core_idx].queue),
-                'tasks': []
-            }
-            
-            # Get tasks in this core's queue
-            for task in list(self.deques[core_idx].queue):
-                core_data['tasks'].append(task.to_dict())
-            
-            frame['cores'].append(core_data)
-        
-        self.animation_data.append(frame)
-    
-    def run(self, initial_tasks):
-        # Initialize with starting tasks
-        for task in initial_tasks:
-            self.schedule_event(0, "arrival", task)
-        
-        # Capture initial state
-        self.capture_animation_frame()
-        
-        # Main event loop
-        while self.event_queue:
-            event = heapq.heappop(self.event_queue)
-            time = event[0]
-            self.time = time
-            event_type = event[2]
-            args = event[3:]
-            
-            if event_type == "arrival":
-                task = args[0]
-                core_idx = random.randint(0, self.num_cores - 1)
-                task.state = "ready"
-                task.ready_time = time
-                task.core_id = core_idx
-                self.deques[core_idx].push_bottom(task)
-                if core_idx in self.idle_cores:
-                    self.schedule_event(time, "schedule", core_idx)
-            
-            elif event_type == "finish":
-                core_id, task = args
-                task.state = "terminated"
-                task.finish_time = time
-                self.metrics["completed_tasks"] += 1
-                self.metrics["finished_tasks"].append(task)
-                
-                # Process child tasks
-                for child in task.children:
-                    child.state = "ready"
-                    child.ready_time = time
-                    child.core_id = core_id
-                    self.deques[core_id].push_bottom(child)
-                
-                self.schedule_event(time, "schedule", core_id)
-            
-            elif event_type == "schedule":
-                core_id = args[0]
-                if core_id not in self.idle_cores: 
-                    continue
-                    
-                self.idle_cores.discard(core_id)
-                task = self.deques[core_id].pop_bottom()
-                
-                if task:
-                    task.state = "running"
-                    task.start_time = time
-                    task.core_id = core_id
-                    finish_time = time + task.burst_time
-                    self.schedule_event(finish_time, "finish", core_id, task)
-                else:
-                    # Work stealing phase
-                    victims = [i for i in range(self.num_cores) if i != core_id]
-                    random.shuffle(victims)
-                    stolen = False
-                    
-                    for victim in victims:
-                        task = self.deques[victim].steal_top()
-                        self.metrics["steal_attempts"] += 1
-                        if task:
-                            stolen = True
-                            task.state = "running"
-                            task.start_time = time
-                            task.core_id = core_id
-                            finish_time = time + task.burst_time
-                            self.schedule_event(finish_time, "finish", core_id, task)
-                            break
-                    
-                    if not stolen:
-                        self.idle_cores.add(core_id)
-            
-            # Capture animation frame after each event
-            self.capture_animation_frame()
-        
-        self.calculate_metrics()
-    
-    def calculate_metrics(self):
-        total_waiting = 0
-        total_turnaround = 0
-        
-        for task in self.metrics["finished_tasks"]:
-            waiting_time = task.start_time - task.ready_time
-            turnaround_time = task.finish_time - task.ready_time
-            total_waiting += waiting_time
-            total_turnaround += turnaround_time
-        
-        if self.metrics["completed_tasks"] > 0:
-            self.metrics["avg_waiting_time"] = total_waiting / self.metrics["completed_tasks"]
-            self.metrics["avg_turnaround_time"] = total_turnaround / self.metrics["completed_tasks"]
-        
-        if self.time > 0:
-            self.metrics["throughput"] = self.metrics["completed_tasks"] / self.time
-
-def generate_workload(num_tasks, fork_prob=0.3):
-    tasks = []
-    for i in range(num_tasks):
-        children = []
-        if random.random() < fork_prob:
-            children = [Task(f"{i}-{j}", random.randint(1, 5)) 
-                        for j in range(random.randint(1, 3))]
-        tasks.append(Task(i, random.randint(1, 10), children))
-    return tasks
+from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
+import random
 
 app = FastAPI()
-
-# Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+
+class Process:
+    def __init__(self, pid, arrival, burst, io_chance=0.15):
+        self.pid = pid
+        self.arrival = arrival
+        self.burst = burst
+        self.remaining = burst
+        self.state = "NEW"
+        self.start_time = None
+        self.finish_time = None
+        self.waiting_time = 0
+        self.io_chance = io_chance
+        self.io_remaining = 0
+
+    def to_dict(self):
+        return {
+            "pid": self.pid,
+            "arrival": self.arrival,
+            "burst": self.burst,
+            "remaining": self.remaining,
+            "state": self.state,
+            "start_time": self.start_time,
+            "finish_time": self.finish_time,
+            "waiting_time": self.waiting_time,
+        }
+
+
+class RRSimulator:
+    def __init__(self, quantum=3):
+        self.quantum = quantum
+        self.time = 0
+        self.ready = deque()
+        self.blocked = []
+        self.cpu = None  # currently running process
+        self.quantum_left = 0
+        self.finished = []
+        self.all_processes = []
+        self.timeline = []  # for Gantt chart
+        self.frames = []
+
+    def capture(self):
+        self.frames.append(
+            {
+                "time": self.time,
+                "cpu": self.cpu.to_dict() if self.cpu else None,
+                "quantum_left": self.quantum_left,
+                "ready": [p.to_dict() for p in self.ready],
+                "blocked": [p.to_dict() for p in self.blocked],
+                "finished": [p.to_dict() for p in self.finished],
+                "processes": [p.to_dict() for p in self.all_processes],
+                "timeline": list(self.timeline),
+            }
+        )
+
+    def run(self, processes):
+        self.all_processes = sorted(processes, key=lambda p: p.arrival)
+        pending = list(self.all_processes)
+        idx = 0
+
+        self.capture()
+
+        while pending or self.ready or self.cpu or self.blocked:
+            # Arrive new processes
+            while idx < len(pending) and pending[idx].arrival <= self.time:
+                p = pending[idx]
+                p.state = "READY"
+                self.ready.append(p)
+                idx += 1
+
+            # Unblock finished I/O
+            still_blocked = []
+            for p in self.blocked:
+                p.io_remaining -= 1
+                if p.io_remaining <= 0:
+                    p.state = "READY"
+                    self.ready.append(p)
+                else:
+                    still_blocked.append(p)
+            self.blocked = still_blocked
+
+            # CPU scheduling
+            if self.cpu is None and self.ready:
+                self.cpu = self.ready.popleft()
+                self.cpu.state = "RUNNING"
+                if self.cpu.start_time is None:
+                    self.cpu.start_time = self.time
+                self.quantum_left = self.quantum
+
+            if self.cpu:
+                self.cpu.remaining -= 1
+                self.quantum_left -= 1
+                self.timeline.append(self.cpu.pid)
+
+                # Finished?
+                if self.cpu.remaining <= 0:
+                    self.cpu.state = "EXIT"
+                    self.cpu.finish_time = self.time + 1
+                    self.finished.append(self.cpu)
+                    self.cpu = None
+                    self.quantum_left = 0
+                # Quantum expired?
+                elif self.quantum_left <= 0:
+                    self.cpu.state = "READY"
+                    self.ready.append(self.cpu)
+                    self.cpu = None
+                # Random I/O request
+                elif random.random() < self.cpu.io_chance and self.cpu.remaining > 1:
+                    self.cpu.state = "BLOCKED"
+                    self.cpu.io_remaining = random.randint(2, 5)
+                    self.blocked.append(self.cpu)
+                    self.cpu = None
+                    self.quantum_left = 0
+            else:
+                self.timeline.append(None)  # idle
+
+            # Update waiting times
+            for p in self.ready:
+                p.waiting_time += 1
+
+            self.time += 1
+            self.capture()
+
+            if self.time > 500:  # safety
+                break
+
+        return self.frames
+
+
+def generate_processes(n=6):
+    procs = []
+    t = 0
+    for i in range(1, n + 1):
+        arrival = t
+        burst = random.randint(4, 12)
+        procs.append(Process(f"P{i}", arrival, burst))
+        t += random.randint(0, 3)
+    return procs
+
 
 @app.get("/", response_class=HTMLResponse)
-def read_root():
-    html_content = open("templates/index.html").read()
-    return HTMLResponse(content=html_content)
+async def root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
 
 @app.get("/simulate")
 def simulate(
-    num_cores: int = Query(4, description="Number of CPU cores"),
-    num_tasks: int = Query(20, description="Number of initial tasks"),
-    fork_prob: float = Query(0.2, description="Probability of task forking")
+    num_processes: int = Query(6, ge=3, le=12),
+    quantum: int = Query(3, ge=1, le=10),
 ):
-    simulator = MulticoreSimulator(num_cores=num_cores)
-    tasks = generate_workload(num_tasks, fork_prob=fork_prob)
-    simulator.run(tasks)
-    
+    sim = RRSimulator(quantum=quantum)
+    procs = generate_processes(num_processes)
+    frames = sim.run(procs)
+
+    # metrics
+    finished = [p for p in sim.all_processes if p.finish_time is not None]
+    avg_wait = sum(p.waiting_time for p in finished) / len(finished) if finished else 0
+    avg_turn = (
+        sum(p.finish_time - p.arrival for p in finished) / len(finished)
+        if finished
+        else 0
+    )
+
     return {
-        "animation_data": simulator.animation_data,
-        "metrics": simulator.metrics,
-        "total_time": simulator.time
+        "frames": frames,
+        "quantum": quantum,
+        "metrics": {
+            "avg_waiting": round(avg_wait, 2),
+            "avg_turnaround": round(avg_turn, 2),
+            "total_time": sim.time,
+        },
     }
